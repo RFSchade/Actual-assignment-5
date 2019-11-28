@@ -34,3 +34,69 @@ knitr::opts_chunk$set(echo = TRUE)
 - Go back to Assignment 3, add your own study to the data table, and re-run meta-analysis. Do the results change?
 
 - Now look at the output of rma() and check tau and I2
+```{r}
+#-----> Questions
+#Download the data on all published articles analyzing voice in schizophrenia and the prisma chart as reference of all articles found and reviewed
+#Look through the dataset to find out which columns to use, and if there is any additional information written as comments (real world data is always messy!).
+
+# Loading packages
+pacman::p_load(backports, pacman, readxl, tidyverse, metafor, lme4)
+
+# Loading dataframe: 
+dataset <- read_excel("Matrix_MetaAnalysis_Diagnosis_updated290719.xlsx")
+
+# Chosing the right vaiables for feature 1: 
+df_f1 <- dataset %>% filter(ArticleID, StudyID, SAMPLE_SIZE_HC, SAMPLE_SIZE_SZ, PITCH_F0_HC_M, PITCH_F0_SZ_M, PITCH_F0_HC_SD, PITCH_F0_SZ_SD) %>% select(ArticleID, StudyID, TYPE_OF_TASK, SAMPLE_SIZE_HC, SAMPLE_SIZE_SZ, PITCH_F0_HC_M, PITCH_F0_SZ_M, PITCH_F0_HC_SD, PITCH_F0_SZ_SD)
+
+# Chosing the right vaiables for feature 1: 
+df_f2 <- dataset %>% filter(ArticleID, StudyID, SAMPLE_SIZE_HC, SAMPLE_SIZE_SZ, PITCH_F0SD_HC_M, PITCH_F0SD_SZ_M, PITCH_F0SD_HC_SD, PITCH_F0SD_SZ_SD) %>% select(ArticleID, StudyID, TYPE_OF_TASK, SAMPLE_SIZE_HC, SAMPLE_SIZE_SZ, PITCH_F0SD_HC_M, PITCH_F0SD_SZ_M, PITCH_F0SD_HC_SD, PITCH_F0SD_SZ_SD)
+
+# Changing the column names to something more manageable 
+colnames(df_f1) <- c("articleID", "studyID","task", "n_hc", "n_sz", "f1_hc_mean", "f1_sz_mean", "f1_hc_sd", "f1_sz_sd")
+colnames(df_f2) <- c("articleID", "studyID", "task","n_hc", "n_sz", "f2_hc_mean", "f2_sz_mean", "f2_hc_sd", "f2_sz_sd")
+```
+
+For feature 1: (pitch mean)
+SAMPLE_SIZE_HC = n_hc = n1
+SAMPLE_SIZE_SZ = n_sz = n2
+PITCH_F0_HC_M = f1_hc_mean = m1
+PITCH_F0_SZ_M = f1_sz_mean = m2
+PITCH_F0_HC_SD = f1_hc_Sd = sd1
+PITCH_F0_SZ_SD = f1_sz_sd = sd2
+
+For feature 2: (pitch sd)
+SAMPLE_SIZE_HC = n_hc = n1
+SAMPLE_SIZE_SZ = n_sz = n2
+PITCH_F0SD_HC_M = f2_hc_mean = m1
+PITCH_F0SD_SZ_M = f2_sz_mean = m2
+PITCH_F0SD_HC_SD = f2_hc_sd = sd1
+PITCH_F0SD_SZ_SD = f2_sz_sd = sd2
+
+```{r}
+#-----> Questions
+# Following the procedure in the slides calculate effect size and standard error of the effect size per each study. N.B. we focus on pitch mean and pitch standard deviation.
+
+# Calculating Cohen's d (effectsize) using the mataphor package
+# f1
+df_f1_ES <- escalc('SMD', n1i = n_hc, n2i = n_sz, m1i = f1_hc_mean, m2i = f1_sz_mean, sd1i = f1_hc_sd, sd2i = f1_sz_sd, data = df_f1)
+# f2
+df_f2_ES <- escalc('SMD', n1i = n_hc, n2i = n_sz, m1i = f2_hc_mean, m2i = f2_sz_mean, sd1i = f2_hc_sd, sd2i = f2_sz_sd, data = df_f2)
+
+# Using lmer (to connect to what you know of mixed effects models)
+# f1 - without task 
+mdl1 <- lmer(yi ~ 1 + (1|studyID), df_f1_ES, weights= 1/vi, REML=F, control=lmerControl(check.nobs.vs.nlev="ignore",check.nobs.vs.nRE="ignore"))
+summary(mdl1)
+# f1 - with task 
+mdl2 <- lmer(yi ~ 1 + task + (1|studyID), df_f1_ES, weights= 1/vi, REML=F, control=lmerControl(check.nobs.vs.nlev="ignore",check.nobs.vs.nRE="ignore"))
+summary(mdl2)
+# f2 - without task 
+mdl3 <- lmer(yi ~ 1 + (1|studyID), df_f2_ES, weights= 1/vi, REML=F, control=lmerControl(check.nobs.vs.nlev="ignore",check.nobs.vs.nRE="ignore"))
+summary(mdl3)
+# f2 - with task 
+mdl4 <- lmer(yi ~ 1 + task + (1|studyID), df_f2_ES, weights= 1/vi, REML=F, control=lmerControl(check.nobs.vs.nlev="ignore",check.nobs.vs.nRE="ignore"))
+summary(mdl4)
+
+```
+
+yi = mean estimated Cohen's d within a study
+vi = measure of uncertainty in Cohen's d
